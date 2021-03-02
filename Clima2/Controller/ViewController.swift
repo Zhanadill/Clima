@@ -9,6 +9,7 @@
 import UIKit
 import Alamofire
 import SwiftyJSON
+import CoreLocation
 
 class ViewController: UIViewController{
 
@@ -16,16 +17,32 @@ class ViewController: UIViewController{
     @IBOutlet weak var searchTextField2: UITextField!
     @IBOutlet weak var imageView: UIImageView!
     @IBOutlet weak var temperatureLabel: UILabel!
+    @IBOutlet weak var temperatureLabel2: UILabel!
+    @IBOutlet weak var temperatureLabel3: UILabel!
     @IBOutlet weak var cityLabel: UILabel!
     let URL = "https://api.openweathermap.org/data/2.5/weather"
+    let locationManager = CLLocationManager()
+    let weatherModel = WeatherModel()
     
     
-    func requestInfo(cityName: String){
-        let parameters: [String: String] = [
-            "q" : cityName,
-            "appid" : "12a5c699b36d0b4049187e3a1b89b00b",
-            "units" : "metric"
-        ]
+    func requestInfo(cityName: String?, lat: Double?, lon: Double?){
+        let parameters: [String: String]
+        if let city = cityName{
+            parameters = [
+                "q" : city,
+                "appid" : "12a5c699b36d0b4049187e3a1b89b00b",
+                "units" : "metric"
+            ]
+        }else{
+            parameters = [
+                "lat" : "\(lat!)",
+                "lon" : "\(lon!)",
+                "appid" : "12a5c699b36d0b4049187e3a1b89b00b",
+                "units" : "metric"
+            ]
+        }
+        
+        
         
         Alamofire.request(URL, method: .get, parameters: parameters).responseJSON { (response) in
             if response.result.isSuccess{
@@ -38,7 +55,9 @@ class ViewController: UIViewController{
                 if let k = Double(temperature){
                      self.temperatureLabel.text = ("\(round(k * 100.0)/100.0)")
                      self.cityLabel.text = city
-                    self.imageView.image = UIImage(systemName: self.getConditionImage(condition: condition))
+                    self.imageView.image = UIImage(systemName: self.weatherModel.getConditionImage(condition: condition))
+                     self.temperatureLabel2.text = "°"
+                     self.temperatureLabel3.text = "C"
                 }
             }
         }
@@ -48,32 +67,14 @@ class ViewController: UIViewController{
     override func viewDidLoad() {
         super.viewDidLoad()
         searchTextField2.delegate = self
+        locationManager.delegate = self
+        locationManager.requestWhenInUseAuthorization()
+        locationManager.requestLocation()
     }
     
-    
-    func getConditionImage(condition: Int) -> String{
-        switch condition{
-            case 200...232:
-                return "cloud.bolt"
-            case 300...321:
-                return "cloud.drizzle"
-            case 500...531:
-                return "cloud.rain"
-            case 600...622:
-                return "cloud.snow"
-            case 701...781:
-                return "cloud.fog"
-            case 800:
-                return "sun.max"
-            case 801...804:
-                return "cloud.bolt"
-            default:
-                return "cloud"
-        }
-    }
-    
+        
     @IBAction func buttonPressed(_ sender: UIButton) {
-        requestInfo(cityName: searchTextField2.text!)
+        requestInfo(cityName: searchTextField2.text!, lat: nil, lon: nil)
         searchTextField2.endEditing(true)
     }
 }
@@ -84,7 +85,7 @@ class ViewController: UIViewController{
 extension ViewController : UITextFieldDelegate{
     
     func textFieldShouldReturn(_ textField: UITextField) -> Bool {
-        requestInfo(cityName: searchTextField2.text!)
+        requestInfo(cityName: searchTextField2.text!, lat: nil, lon: nil)
         searchTextField2.endEditing(true)
         return true
     }
@@ -103,3 +104,20 @@ extension ViewController : UITextFieldDelegate{
     }
 }
 
+
+
+//Mark: CLLocationManagerDelegate
+extension ViewController: CLLocationManagerDelegate{
+    func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
+        if let location = locations.last {
+            let lat = location.coordinate.latitude
+            let lon = location.coordinate.longitude
+            //print(lat)
+            //print(lon)
+            requestInfo(cityName: nil, lat: lat, lon: lon)
+        }
+    }
+    func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
+        print(error)
+    }
+}
